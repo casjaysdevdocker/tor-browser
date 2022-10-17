@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+DEFAULT_START="${DEFAULT_START:-http://check.torproject.org}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+[ "$1" = "" ] && shift 1
+[ "$1" = " " ] && shift 1
+[ "$1" = "torbrowser" ] && shift 1
+[ "$1" = "tor-browser" ] && shift 1
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if [ -f "/tmp/torbrowser.pid" ]; then
+  echo "tor is already running"
+elif [ -z "$DISPLAY" ]; then
+  echo 'The DISPLAY variable is not set please run' 1>&2
+  echo 'docker run -ti -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v "$HOME/.Xauthority:/home/x11user/.Xauthority"' 1>&2
+  exit 1
+else
+  trap '[ -f "/tmp/torbrowser.pid" ] && rm -Rf "/tmp/torbrowser.pid"' EXIT
+  touch "/tmp/torbrowser.pid"
+  eval "/home/x11user/.local/share/torbrowser/Browser/firefox" "${1:-$DEFAULT_START}" &
+  pid="$!" && sleep 30
+  if [ -n "$(pgrep firefox)" ]; then
+    echo 'Started tor-browser: '$pid''
+    wait -f "$pid"
+    rm -Rf "/tmp/torbrowser.pid"
+  else
+    echo "Failed to start torbrowser"
+    exit 1
+  fi
+fi
+
+

@@ -1,0 +1,37 @@
+#!/usr/bin/env sh
+# shellcheck shell=sh
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+##@Version           :  202210152147-git
+# @@Author           :  Jason Hempstead
+# @@Contact          :  jason@casjaysdev.com
+# @@License          :  LICENSE.md
+# @@ReadME           :  start-tor-browser --help
+# @@Copyright        :  Copyright: (c) 2022 Jason Hempstead, Casjays Developments
+# @@Created          :  Saturday, Oct 15, 2022 21:47 EDT
+# @@File             :  start-tor-browser
+# @@Description      :
+# @@Changelog        :  New script
+# @@TODO             :  Better documentation
+# @@Other            :
+# @@Resource         :
+# @@Terminal App     :  no
+# @@sudo/root        :  no
+# @@Template         :  other/start-service
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Overwrite variables
+TOR_BROWSER_VERSION="${TOR_BROWSER_VERSION:-11.5.4}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Actions based on env
+[ -d "/home/x11user/.local/share/torbrowser" ] || mkdir -p "/home/x11user/.local/share/torbrowser"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if [ "$(uname -m)" = "aarch64" ]; then
+  curl -q -LSsf "https://sourceforge.net/projects/tor-browser-ports/files/${TOR_BROWSER_VERSION}/tor-browser-linux-arm64-${TOR_BROWSER_VERSION}_en-US.tar.xz" -o "/tmp/torbrowser.tar.xz"
+  tar --strip 1 -xvJf "/tmp/torbrowser.tar.xz" -C "/home/x11user/.local/share/torbrowser"
+elif [ "$(uname -m)" = "x86_64" ]; then
+  curl -q -LSsf "https://www.torproject.org/dist/torbrowser/${TOR_BROWSER_VERSION}/tor-browser-linux64-${TOR_BROWSER_VERSION}_en-US.tar.xz" -o "/tmp/torbrowser.tar.xz"
+  tar --strip 1 -xvJf "/tmp/torbrowser.tar.xz" -C "/home/x11user/.local/share/torbrowser"
+else
+  echo "Unsupported platform"
+  exit 1
+fi
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
