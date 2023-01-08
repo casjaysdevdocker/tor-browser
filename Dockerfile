@@ -1,59 +1,35 @@
-FROM casjaysdevdocker/debian:latest AS build
+FROM casjaysdevdocker/alpine:latest AS build
 
-ARG DEBIAN_VERSION="bullseye"
+ARG ALPINE_VERSION="v3.16"
 
-ARG DEFAULT_DATA_DIR="/home/x11user/.local/share/torbrowser/Browser/TorBrowser/Data/Browser" \
+ARG DEFAULT_DATA_DIR="/usr/local/share/template-files/data" \
   DEFAULT_CONF_DIR="/usr/local/share/template-files/config" \
   DEFAULT_TEMPLATE_DIR="/usr/local/share/template-files/defaults"
 
-ENV LANG=en_US.utf8 \
+ARG PACK_LIST="bash"
+
+ENV LANG=en_US.UTF-8 \
+  ENV=ENV=~/.bashrc \
   TZ="America/New_York" \
-  SHELL="/bin/bash" \
+  SHELL="/bin/sh" \
   TERM="xterm-256color" \
-  DEBIAN_FRONTEND="noninteractive" \
-  TOR_BROWSER_VERSION="11.5.4"
+  TIMEZONE="${TZ:-$TIMEZONE}" \
+  HOSTNAME="casjaysdev-tor-browser"
+
+COPY ./rootfs/. /
 
 RUN set -ex; \
-  rm -Rf "/etc/apt/sources.list" ; \
-  mkdir -p "${DEFAULT_DATA_DIR}" "${DEFAULT_CONF_DIR}" "${DEFAULT_TEMPLATE_DIR}" "/etc/sudoers.d" "/tmp/tor-profile"; \
-  echo 'export DEBIAN_FRONTEND="noninteractive"' >"/etc/profile.d/apt.sh" && chmod 755 "/etc/profile.d/apt.sh" && \
-  echo "deb http://deb.debian.org/debian ${DEBIAN_VERSION} main contrib non-free" >>"/etc/apt/sources.list" ; \
-  echo "deb http://deb.debian.org/debian ${DEBIAN_VERSION}-updates main contrib non-free" >>"/etc/apt/sources.list" ; \
-  echo "deb http://deb.debian.org/debian-security/ ${DEBIAN_VERSION}-security main contrib non-free" >>"/etc/apt/sources.list" ; \
-  apt-get update -yy && apt-get upgrade -yy && apt-get install -yy \
-  bash \
-  sudo \
-  tini \
-  x11-apps \
-  xz-utils \
-  iproute2 \
-  firefox-esr && \
-  apt-get remove firefox-esr -yy && \
-  useradd --shell /bin/bash --create-home --home-dir /home/x11user x11user && \
-  usermod -a -G audio,video x11user && \
-  echo "x11user ALL=(ALL) NOPASSWD: ALL" >"/etc/sudoers.d/x11user" && \
-  apt-get clean ; \
-  rm -rf /lib/systemd/system/multi-user.target.wants/* ; \
-  rm -rf /etc/systemd/system/*.wants/* ; \
-  rm -rf /lib/systemd/system/local-fs.target.wants/* ; \
-  rm -rf /lib/systemd/system/sockets.target.wants/*udev* ; \
-  rm -rf /lib/systemd/system/sockets.target.wants/*initctl* ; \
-  rm -rf /lib/systemd/system/sysinit.target.wants/systemd-tmpfiles-setup* ; \
-  rm -rf /lib/systemd/system/systemd-update-utmp*
-
-COPY ./bin/. /usr/local/bin/
-COPY ./config/. ${DEFAULT_CONF_DIR}/
-COPY ./data/. /tmp/tor-profile/
-
-RUN install-tor-browser && \
-  cp -Rf /tmp/tor-profile/tor/. ${DEFAULT_DATA_DIR}/ && \
-  chown -Rf x11user:x11user "/home/x11user"
+  rm -Rf "/etc/apk/repositories"; \
+  mkdir -p "${DEFAULT_DATA_DIR}" "${DEFAULT_CONF_DIR}" "${DEFAULT_TEMPLATE_DIR}"; \
+  echo "http://dl-cdn.alpinelinux.org/alpine/${ALPINE_VERSION}/main" >>"/etc/apk/repositories"; \
+  echo "http://dl-cdn.alpinelinux.org/alpine/${ALPINE_VERSION}/community" >>"/etc/apk/repositories"; \
+  if [ "${ALPINE_VERSION}" = "edge" ]; then echo "http://dl-cdn.alpinelinux.org/alpine/${ALPINE_VERSION}/testing" >>"/etc/apk/repositories" ; fi ; \
+  apk update --update-cache && apk add --no-cache ${PACK_LIST} && \
+  echo
 
 RUN echo 'Running cleanup' ; \
-  update-alternatives --install /bin/sh sh /bin/bash 1 ; \
-  rm -Rf /usr/share/doc/* /usr/share/info/* ; \
-  rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* ; \
-  rm -Rf /usr/local/bin/.gitkeep /config /data /var/lib/apt/lists/* ; \
+  rm -Rf /usr/share/doc/* /usr/share/info/* /tmp/* /var/tmp/* ; \
+  rm -Rf /usr/local/bin/.gitkeep /usr/local/bin/.gitkeep /config /data /var/cache/apk/* ; \
   rm -rf /lib/systemd/system/multi-user.target.wants/* ; \
   rm -rf /etc/systemd/system/*.wants/* ; \
   rm -rf /lib/systemd/system/local-fs.target.wants/* ; \
@@ -63,18 +39,19 @@ RUN echo 'Running cleanup' ; \
   rm -rf /lib/systemd/system/systemd-update-utmp* ; \
   if [ -d "/lib/systemd/system/sysinit.target.wants" ]; then cd "/lib/systemd/system/sysinit.target.wants" && rm $(ls | grep -v systemd-tmpfiles-setup) ; fi
 
-#FROM scratch
+FROM scratch
 
-ARG PHP_SERVER="php" \
-  NODE_VERSION="14" \
+ARG \
+  SERVICE_PORT="80" \
+  EXPOSE_PORTS="80" \
+  PHP_SERVER="tor-browser" \
+  NODE_VERSION="system" \
   NODE_MANAGER="system" \
-  SERVICE_PORT="" \
-  EXPOSE_PORTS="" \
+  BUILD_VERSION="latest" \
   LICENSE="MIT" \
   IMAGE_NAME="tor-browser" \
-  BUILD_VERSION="latest" \
-  TIMEZONE="America/New_York" \
-  BUILD_DATE="2022-10-15"
+  BUILD_DATE="Sun Nov 13 12:20:58 PM EST 2022" \
+  TIMEZONE="America/New_York"
 
 LABEL maintainer="CasjaysDev <docker-admin@casjaysdev.com>" \
   org.opencontainers.image.vendor="CasjaysDev" \
@@ -91,32 +68,30 @@ LABEL maintainer="CasjaysDev <docker-admin@casjaysdev.com>" \
   org.opencontainers.image.vcs-url="https://github.com/casjaysdevdocker/${IMAGE_NAME}" \
   org.opencontainers.image.url.source="https://github.com/casjaysdevdocker/${IMAGE_NAME}" \
   org.opencontainers.image.documentation="https://hub.docker.com/r/casjaysdevdocker/${IMAGE_NAME}" \
-  org.opencontainers.image.description="Containerized version of ${IMAGE_NAME}"
+  org.opencontainers.image.description="Containerized version of ${IMAGE_NAME}" \
+  com.github.containers.toolbox="false"
 
-ENV LANG=en_US.utf8 \
+ENV LANG=en_US.UTF-8 \
   ENV=~/.bashrc \
   SHELL="/bin/bash" \
   PORT="${SERVICE_PORT}" \
   TERM="xterm-256color" \
   PHP_SERVER="${PHP_SERVER}" \
-  NODE_VERSION="${NODE_VERSION}" \
-  NODE_MANAGER="${NODE_MANAGER}" \
   CONTAINER_NAME="${IMAGE_NAME}" \
   TZ="${TZ:-America/New_York}" \
   TIMEZONE="${TZ:-$TIMEZONE}" \
-  HOSTNAME="casjaysdev-${IMAGE_NAME}" \
-  USER="x11user"
+  HOSTNAME="casjaysdev-${IMAGE_NAME}"
 
-#COPY --from=build /. /
+COPY --from=build /. /
 
-USER x11user
-WORKDIR /home/x11user
+USER root
+WORKDIR /root
 
-VOLUME [ "/tmp/.X11-unix", "${HOME}/.Xauthority", ]
+VOLUME [ "/config","/data" ]
 
 EXPOSE $EXPOSE_PORTS
 
-CMD [ "$@" ]
-ENTRYPOINT [ "tini", "-p", "SIGTERM", "--", "/usr/local/bin/entrypoint-tor-browser.sh" ]
-HEALTHCHECK --start-period=1m --interval=2m --timeout=3s CMD [ "/usr/local/bin/entrypoint-tor-browser.sh", "healthcheck" ]
+#CMD [ "" ]
+ENTRYPOINT [ "tini", "-p", "SIGTERM", "--", "/usr/local/bin/entrypoint.sh" ]
+HEALTHCHECK --start-period=1m --interval=2m --timeout=3s CMD [ "/usr/local/bin/entrypoint.sh", "healthcheck" ]
 
